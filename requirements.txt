@@ -1,14 +1,7 @@
-# --- Framework y Servidor ---
-fastapi==0.110.0
-uvicorn[standard]==0.28.0
-gunicorn==21.2.0
-
-# --- Base de Datos ---
-mysql-connector-python==8.3.0
-
-# --- Manejo de Datos y Archivos ---
-pydantic==2.6.4
-python-multipart==0.0.9
-
-# --- Variables de Entorno
-python-dotenv==1.0.1
+fastapi
+uvicorn[standard]
+gunicorn
+mysql-connector-python
+pydantic
+python-multipart
+python-dotenv
