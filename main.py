@@ -303,13 +303,17 @@ def home():
 def login(data: LoginData):
     conexion = obtener_conexion()
     cursor = conexion.cursor(dictionary=True)
-    cursor.execute(
-        "SELECT Id_Usuario, Nombres, Contraseña, Rol FROM Usuarios WHERE Correo = %s",
-        (data.usuario,)
-    )
-    usuario_db = cursor.fetchone()
-    cursor.close()
-    conexion.close()
+    try:
+        cursor.execute(
+            "SELECT Id_Usuario, Nombres, Contraseña, Rol FROM Usuarios WHERE Correo = %s",
+            (data.usuario,)
+        )
+        usuario_db = cursor.fetchone()
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos en login: {str(err)}")
+    finally:
+        cursor.close()
+        conexion.close()
     if not usuario_db:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
     if usuario_db["Contraseña"] != data.password:
