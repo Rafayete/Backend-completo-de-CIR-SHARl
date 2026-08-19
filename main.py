@@ -45,16 +45,36 @@ def ejecutar_sql(datos: dict = Body(...)):
     finally:
         cursor.close()
         conexion.close()
-# 2. Endpoint para obtener todos los registros de cualquier tabla
+# 2. Endpoint para obtener todos los registros de cualquier tabla# En main.py
+
 @app.get("/admin/tabla/{nombre_tabla}")
 def obtener_tabla(nombre_tabla: str):
     tablas_permitidas = ["Usuarios", "Equipos", "Ordenes", "Areas", "Vehiculos"]
     if nombre_tabla not in tablas_permitidas:
         raise HTTPException(status_code=400, detail="Tabla no permitida")
+    
     conexion = obtener_conexion()
     cursor = conexion.cursor(dictionary=True)
     try:
-        cursor.execute(f"SELECT * FROM {nombre_tabla}")
+        # Consulta adaptada para Ordenes para traer la estructura limpia
+        if nombre_tabla == "Ordenes":
+            query = """
+                SELECT 
+                    o.Id_Orden, 
+                    o.Asunto, 
+                    o.Descripcion, 
+                    o.Fecha, 
+                    o.Estatus, 
+                    o.Prioridad, 
+                    o.Id_Usuario_R, 
+                    o.Id_Usuario_D
+                FROM Ordenes o
+                ORDER BY o.Id_Orden DESC
+            """
+            cursor.execute(query)
+        else:
+            cursor.execute(f"SELECT * FROM {nombre_tabla}")
+            
         registros = cursor.fetchall()
         return {"tabla": nombre_tabla, "datos": registros}
     except Exception as err:
@@ -331,11 +351,14 @@ def obtener_perfil(id_usuario: int):
     cursor.execute(
         """
         SELECT 
-            u.Id_Usuario, u.Nombres, u.Apellidos, u.Correo, u.Telefono, u.Puesto, u.Rol, u.Ciudad, u.Oficina, a.Nombre_Area,
-            e.Id_Equipo, e.Marca, e.Tipo, e.Sistema_Operativo, e.RAM, e.ROM, e.Estatus
+            u.Id_Usuario, u.Nombres, u.Apellidos, u.Correo, u.Telefono, u.Puesto, u.Rol, u.Ciudad, u.Oficina, 
+            a.Nombre_Area,
+            e.Id_Equipo, e.Marca, e.Tipo, e.Sistema_Operativo, e.RAM, e.ROM, e.Estatus,
+            v.Placa, v.Marca AS Marca_Vehiculo, v.Modelo AS Modelo_Vehiculo, v.Año AS Anio_Vehiculo, v.Color AS Color_Vehiculo
         FROM Usuarios u
         LEFT JOIN Areas a ON a.Id_Area = u.Id_Area1
         LEFT JOIN Equipos e ON e.id_Usuario1 = u.Id_Usuario
+        LEFT JOIN Vehiculos v ON v.Id_Responsable = u.Id_Usuario
         WHERE u.Id_Usuario = %s
         """,
         (id_usuario,)
@@ -346,6 +369,7 @@ def obtener_perfil(id_usuario: int):
     if not resultado:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return resultado
+
 @app.post("/ordenes")
 def crear_orden(data: OrdenData):
     conexion = obtener_conexion()
