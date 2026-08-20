@@ -358,27 +358,55 @@ def login(data: LoginData):
 def obtener_perfil(id_usuario: int):
     conexion = obtener_conexion()
     cursor = conexion.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT 
-            u.Id_Usuario, u.Nombres, u.Apellidos, u.Correo, u.Telefono, u.Puesto, u.Rol, u.Ciudad, u.Oficina, 
-            a.Nombre_Area,
-            e.Id_Equipo, e.Marca, e.Tipo, e.Sistema_Operativo, e.RAM, e.ROM, e.Estatus,
-            v.Placa, v.Marca AS Marca_Vehiculo, v.Modelo AS Modelo_Vehiculo, v.Año AS Anio_Vehiculo, v.Color AS Color_Vehiculo
-        FROM Usuarios u
-        LEFT JOIN Areas a ON a.Id_Area = u.Id_Area1
-        LEFT JOIN Equipos e ON e.id_Usuario1 = u.Id_Usuario
-        LEFT JOIN Vehiculos v ON v.Id_Responsable = u.Id_Usuario
-        WHERE u.Id_Usuario = %s
-        """,
-        (id_usuario,)
-    )
-    resultado = cursor.fetchone()
-    cursor.close()
-    conexion.close()
-    if not resultado:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return resultado
+    try:
+        # 1. Obtener datos generales del usuario y su área
+        cursor.execute(
+            """
+            SELECT 
+                u.Id_Usuario, u.Nombres, u.Apellidos, u.Correo, u.Telefono, 
+                u.Puesto, u.Rol, u.Ciudad, u.Oficina, a.Nombre_Area
+            FROM Usuarios u
+            LEFT JOIN Areas a ON a.Id_Area = u.Id_Area1
+            WHERE u.Id_Usuario = %s
+            """,
+            (id_usuario,)
+        )
+        usuario = cursor.fetchone()
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # 2. Obtener TODOS los equipos asignados al usuario
+        cursor.execute(
+            """
+            SELECT Id_Equipo, Marca, Tipo, Sistema_Operativo, RAM, ROM, Estatus
+            FROM Equipos
+            WHERE id_Usuario1 = %s
+            """,
+            (id_usuario,)
+        )
+        usuario["Equipos"] = cursor.fetchall()
+
+        # 3. Obtener TODOS los vehículos asignados al usuario
+        cursor.execute(
+            """
+            SELECT Placa, Marca AS Marca_Vehiculo, Modelo AS Modelo_Vehiculo, 
+                   Año AS Anio_Vehiculo, Color AS Color_Vehiculo
+            FROM Vehiculos
+            WHERE Id_Responsable = %s
+            """,
+            (id_usuario,)
+        )
+        usuario["Vehiculos"] = cursor.fetchall()
+
+        return usuario
+
+    except HTTPException:
+        raise
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Error al obtener el perfil: {str(err)}")
+    finally:
+        cursor.close()
+        conexion.close()
 
 @app.post("/ordenes")
 def crear_orden(data: OrdenData):
